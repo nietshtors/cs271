@@ -39,5 +39,48 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    // Instruction locations
+    // [15] A or C instruction
+    // [6..12] comp
+    // [3..5] dest
+    // [0..2] jump
+
+    // A Register
+    Mux16(a=instruction, b=outM2, sel=instruction[15], out=inA);
+    Not(in=instruction[15], out=neginst);
+    Or(a=neginst, b=instruction[5], out=loadA);
+    ARegister(in=inA, load=loadA, out=outAReg, out[0..14]=addressM);
+
+    // Selecting A or M
+    And(a=instruction[12], b=instruction[15], out=AorM);
+    Mux16(a=outAReg, b=inM, sel=AorM, out=AM);
+
+    // ALU
+    ALU(x=outDReg, y=AM, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=outM, out=outM2, zr=zr, ng=neg);
+
+    // D Register
+    And(a=instruction[15], b=instruction[4], out=loadD);
+    DRegister(in=outM2, load=loadD, out=outDReg);
+
+    // Write to Memory[A]
+    And(a=instruction[3], b=instruction[15], out=writeM);
+
+    // Jump calculations
+    Not(in=zr, out=nonzero);
+    Not(in=neg, out=pos);
+    And(a=pos, b=nonzero, out=posnonzero);
+    And(a=instruction[0], b=instruction[15], out=jgt);
+    And(a=jgt, b=posnonzero, out=load0);
+    
+    And(a=instruction[1], b=instruction[15], out=jeq);
+    And(a=jeq, b=zr, out=load1);
+
+    And(a=instruction[2], b=instruction[15], out=jlt);
+    And(a=jlt, b=neg, out=load2);
+
+    Or(a=load0, b=load1, out=load3);
+    Or(a=load2, b=load3, out=load);
+
+    // Program Counter
+    PC(in=outAReg, load=load, inc=true, reset=reset, out[0..14]=pc);
 }
